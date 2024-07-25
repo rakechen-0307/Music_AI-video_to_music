@@ -54,7 +54,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
 
     ## image
     image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
-    image_group = len(image_files) / len(audio_files)
+    image_group = len(image_files) // len(audio_files)
     j = 0
     while (j < len(image_files)):
         for k in range(j, j + image_group):
@@ -121,7 +121,7 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
 
     ## image
     image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
-    image_group = len(image_files) / len(audio_files)
+    image_group = len(image_files) // len(audio_files)
     j = 0
     while (j < len(image_files)):
         for k in range(j, j + image_group):
