@@ -55,25 +55,28 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
     ## image
     image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
     image_group = len(image_files) // len(audio_files)
-    for k in range(len(image_files)):
-        images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
+    j = 0
+    while (j < len(image_files)):
+        for k in range(j, j + image_group * 5):
+            images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
         
-    image_input = {
-        ModalityType.VISION: data.load_and_transform_vision_data(images, device),
-    }
-    with torch.no_grad():
-        image_embeddings = model(image_input)
-    
-        video_embed = image_embeddings[ModalityType.VISION]
-        video_embed = torch.reshape(video_embed, (len(audio_files), image_group, -1))
-        video_embed = torch.mean(video_embed, dim=1)
+        image_input = {
+            ModalityType.VISION: data.load_and_transform_vision_data(images, device),
+        }
+        with torch.no_grad():
+            image_embeddings = model(image_input)
+        
+            video_embed = image_embeddings[ModalityType.VISION]
+            video_embed = torch.reshape(video_embed, (5, image_group, -1))
+            video_embed = torch.mean(video_embed, dim=1)
 
-        if (i == 0):
-            train_video_embeds = video_embed
-        else:
-            train_video_embeds = torch.cat((train_video_embeds, video_embed), 0)
+            if (i == 0 and j == 0):
+                train_video_embeds = video_embed
+            else:
+                train_video_embeds = torch.cat((train_video_embeds, video_embed), 0)
 
-    images = []
+        images = []
+        j += (image_group * 5)
 
 print(train_video_embeds.shape)
 print(train_audio_embeds.shape)
@@ -119,25 +122,28 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
     ## image
     image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
     image_group = len(image_files) // len(audio_files)
-    for k in range(len(image_files)):
-        images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
+    j = 0
+    while (j < len(image_files)):
+        for k in range(j, j + image_group):
+            images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
         
-    image_input = {
-        ModalityType.VISION: data.load_and_transform_vision_data(images, device),
-    }
-    with torch.no_grad():
-        image_embeddings = model(image_input)
-    
-        video_embed = image_embeddings[ModalityType.VISION]
-        video_embed = torch.reshape(video_embed, (len(audio_files), image_group, -1))
-        video_embed = torch.mean(video_embed, dim=1)
+        image_input = {
+            ModalityType.VISION: data.load_and_transform_vision_data(images, device),
+        }
+        with torch.no_grad():
+            image_embeddings = model(image_input)
+        
+            video_embed = image_embeddings[ModalityType.VISION]
+            video_embed = torch.reshape(video_embed, (1, image_group, -1))
+            video_embed = torch.mean(video_embed, dim=1)
 
-        if (i == 0):
-            valid_video_embeds = video_embed
-        else:
-            valid_video_embeds = torch.cat((valid_video_embeds, video_embed), 0)
+            if (i == int(len(audio_dirs)*split) and j == 0):
+                valid_video_embeds = video_embed
+            else:
+                valid_video_embeds = torch.cat((valid_video_embeds, video_embed), 0)
 
-    images = []
+        images = []
+        j += image_group
 
 print(valid_video_embeds.shape)
 print(valid_audio_embeds.shape)
