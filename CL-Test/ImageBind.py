@@ -58,7 +58,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
     j = 0
     while (j < len(image_files)):
         for k in range(j, j + image_group):
-            images.append(image_path + "/" + image_dirs[i] + "/" + + image_files[k])
+            images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
         
         image_input = {
             ModalityType.VISION: data.load_and_transform_vision_data(images, device),
@@ -125,7 +125,7 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
     j = 0
     while (j < len(image_files)):
         for k in range(j, j + image_group):
-            images.append(image_path + "/" + image_dirs[i] + "/" + + image_files[k])
+            images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
         
         image_input = {
             ModalityType.VISION: data.load_and_transform_vision_data(images, device),
@@ -144,7 +144,6 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
 
         images = []
         j += image_group
-
 
 print(valid_video_embeds.shape)
 print(valid_audio_embeds.shape)
