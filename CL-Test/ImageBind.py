@@ -80,11 +80,11 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
         images = []
         j += (image_group * 5 * 4)
 
-print(train_video_embeds.shape)
-print(train_audio_embeds.shape)
-
 train_video = train_video_embeds.cpu().numpy()
 train_audio = train_audio_embeds.cpu().numpy()
+
+print(train_video.shape)
+print(train_audio.shape)
 
 filename1 = './Embeddings/train_video.npy'
 fp1 = np.memmap(filename1, dtype='float32', mode='w+', shape=(train_video.shape[0], train_video.shape[1]))
@@ -144,11 +144,11 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
 
     images = []
 
-print(valid_video_embeds.shape)
-print(valid_audio_embeds.shape)
-
 valid_video = valid_video_embeds.cpu().numpy()
 valid_audio = valid_audio_embeds.cpu().numpy()
+
+print(valid_video.shape)
+print(valid_audio.shape)
 
 filename3 = './Embeddings/valid_video.npy'
 fp3 = np.memmap(filename3, dtype='float32', mode='w+', shape=(valid_video.shape[0], valid_video.shape[1]))
