@@ -31,6 +31,7 @@ audio_dirs = sorted(os.listdir(audio_path))
 image_dirs = sorted(os.listdir(image_path))
 
 ## training set
+#for i in tqdm(range(1)):
 for i in tqdm(range(int(len(audio_dirs)*split))):
 
     ## audio
@@ -57,10 +58,15 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
     image_group = len(image_files) // len(audio_files)
     j = 0
     while (j < len(image_files)):
-        for k in range(j, j + image_group * 5 * 4):
-            if (k >= len(image_files)):
+        l = j
+        group = 0
+        for m in range(4):
+            for k in range(l, l + image_group * 5):
+                images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
+            l += image_group * 5
+            group += 5
+            if (l >= len(image_files)):
                 break
-            images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
         
         image_input = {
             ModalityType.VISION: data.load_and_transform_vision_data(images, device),
@@ -69,7 +75,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
             image_embeddings = model(image_input)
         
             video_embed = image_embeddings[ModalityType.VISION]
-            video_embed = torch.reshape(video_embed, (5, image_group, -1))
+            video_embed = torch.reshape(video_embed, (group, image_group, -1))
             video_embed = torch.mean(video_embed, dim=1)
 
             if (i == 0 and j == 0):
@@ -78,7 +84,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
                 train_video_embeds = torch.cat((train_video_embeds, video_embed), 0)
 
         images = []
-        j += (image_group * 5 * 4)
+        j = l
 
 train_video = train_video_embeds.cpu().numpy()
 train_audio = train_audio_embeds.cpu().numpy()
@@ -100,6 +106,7 @@ fp2.flush()
 
 
 ## validation set
+#for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs)*split)+1)):
 for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
 
     ## audio
@@ -124,25 +131,35 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
     ## image
     image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
     image_group = len(image_files) // len(audio_files)
-    for k in range(len(image_files)):
-        images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
+    j = 0
+    while (j < len(image_files)):
+        l = j
+        group = 0
+        for m in range(20):
+            for k in range(l, l + image_group):
+                images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
+            l += image_group
+            group += 1
+            if (l >= len(image_files)):
+                break
         
-    image_input = {
-        ModalityType.VISION: data.load_and_transform_vision_data(images, device),
-    }
-    with torch.no_grad():
-        image_embeddings = model(image_input)
-    
-        video_embed = image_embeddings[ModalityType.VISION]
-        video_embed = torch.reshape(video_embed, (len(audio_files), image_group, -1))
-        video_embed = torch.mean(video_embed, dim=1)
+        image_input = {
+            ModalityType.VISION: data.load_and_transform_vision_data(images, device),
+        }
+        with torch.no_grad():
+            image_embeddings = model(image_input)
+        
+            video_embed = image_embeddings[ModalityType.VISION]
+            video_embed = torch.reshape(video_embed, (group, image_group, -1))
+            video_embed = torch.mean(video_embed, dim=1)
 
-        if (i == int(len(audio_dirs)*split) and j == 0):
-            valid_video_embeds = video_embed
-        else:
-            valid_video_embeds = torch.cat((valid_video_embeds, video_embed), 0)
+            if (i == int(len(audio_dirs)*split) and j == 0):
+                valid_video_embeds = video_embed
+            else:
+                valid_video_embeds = torch.cat((valid_video_embeds, video_embed), 0)
 
-    images = []
+        images = []
+        j = l
 
 valid_video = valid_video_embeds.cpu().numpy()
 valid_audio = valid_audio_embeds.cpu().numpy()
