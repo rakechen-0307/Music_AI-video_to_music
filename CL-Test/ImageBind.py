@@ -5,21 +5,7 @@ import torch
 import torchaudio
 import random
 from pkg_resources import packaging
-from PIL import Image
-from PIL import ImageFilter, ImageEnhance
 from tqdm import tqdm
-from torchaudio_augmentations import (
-    Compose,
-    Delay,
-    Gain,
-    HighLowPass,
-    Noise,
-    PitchShift,
-    PolarityInversion,
-    RandomApply,
-    RandomResizedCrop,
-    Reverb,
-)
 from imagebind import data
 from imagebind.models import imagebind_model
 from imagebind.models.imagebind_model import ModalityType
@@ -35,49 +21,9 @@ model.to(device)
 ## audio augmentation
 audio_seg_time = 30
 
-def audio_transform(sr):
-  transforms = [
-    RandomResizedCrop(n_samples=sr*audio_seg_time),
-    RandomApply([PolarityInversion()], p=0.5),
-    RandomApply([HighLowPass(sample_rate=sr)], p=0.5),
-    RandomApply([Delay(sample_rate=sr)], p=0.5),
-    RandomApply([PitchShift(sample_rate=sr, n_samples=sr*audio_seg_time)], p=0.5),
-    RandomApply([Gain()], p=0.5),
-    RandomApply([Noise(max_snr=0.01)], p=0.5),
-    RandomApply([Reverb(sample_rate=sr)], p=0.5)
-  ]
-
-  audio_transform = Compose(transforms=transforms)
-  return audio_transform
-
-## image augmentation
-def image_transform(img):
-
-  # blur
-  blur_r = random.random()*2
-  img = img.filter(ImageFilter.GaussianBlur(radius=blur_r))
-
-  # color
-  color_r = random.random()*0.3 + 0.7
-  enhancer = ImageEnhance.Color(img)
-  img = enhancer.enhance(color_r)
-
-  # contrast
-  contrast_r = random.random()*0.5 + 0.75
-  enhancer = ImageEnhance.Contrast(img)
-  img = enhancer.enhance(contrast_r)
-
-  # brightness
-  brightness_r = random.random()*0.5 + 0.75
-  enhancer = ImageEnhance.Brightness(img)
-  img = enhancer.enhance(brightness_r)
-
-  return img
-
-
 split = 0.8
-audio_path = "./Audio/Data"
-image_path = "./Frames"
+audio_path = "./Audio_aug"
+image_path = "./Frames_aug"
 audios = []
 images = []
 
@@ -87,85 +33,32 @@ image_dirs = sorted(os.listdir(image_path))
 ## training set
 for i in tqdm(range(int(len(audio_dirs)*split))):
 
-    new_dir = "temp"
-
     ## audio
     audio_files = sorted(os.listdir(audio_path + "/" + audio_dirs[i]))
     for j in range(len(audio_files)):
-        count = 0
-        os.mkdir(audio_path + "/" + audio_dirs[i] + "/" + new_dir)
-        audio, sr = torchaudio.load(audio_path + "/" + audio_dirs[i] + "/" + audio_files[j])
-        for k in range(5):
-            if (k != 0):
-                process = audio_transform(sr)
-                transformed_audio = process(audio)
-            else:
-                transformed_audio = audio
+        audios.append(audio_path + "/" + audio_dirs[i] + "/" + audio_files[j])
 
-            if (count < 10):
-                num = "000" + str(count)
-            elif (count < 100):
-                num = "00" + str(count)
-            elif (count < 1000):
-                num = "0" + str(count)
-            else:
-                num = str(count)
-            count += 1
-
-            output_dir = audio_path + "/" + audio_dirs[i] + "/" + new_dir + "/" + num + ".mp3"
-            torchaudio.save(output_dir, transformed_audio, sr, format="mp3")
-
-        # os.remove(audio_files[j])
-        audio_files2 = sorted(os.listdir(audio_path + "/" + audio_dirs[i] + "/" + new_dir))
-        for k in range(len(audio_files2)):
-            audios.append(audio_path + "/" + audio_dirs[i] + "/" + new_dir + "/" + audio_files2[k])
-        
-        audio_input = {
-            ModalityType.AUDIO: data.load_and_transform_audio_data(audios, device),
-        }
-        with torch.no_grad():
-            audio_embeddings = model(audio_input)
-        
-            audio_embed = audio_embeddings[ModalityType.AUDIO]
-            if (i == 0 and j == 0):
-                train_audio_embeds = audio_embed
-            else:
-                train_audio_embeds = torch.cat((train_audio_embeds, audio_embed), 0)
-        
-        audios = []
-        os.system("rm -r {}".format(audio_path + "/" + audio_dirs[i] + "/" + new_dir))
-
+    audio_input = {
+        ModalityType.AUDIO: data.load_and_transform_audio_data(audios, device),
+    }
+    with torch.no_grad():
+        audio_embeddings = model(audio_input)
     
+        audio_embed = audio_embeddings[ModalityType.AUDIO]
+        if (i == 0):
+            train_audio_embeds = audio_embed
+        else:
+            train_audio_embeds = torch.cat((train_audio_embeds, audio_embed), 0)
+    
+    audios = []
+
     ## image
-    image_dirs2 = sorted(os.listdir(image_path + "/" + image_dirs[i]))
-    for j in range(len(image_dirs2)):
-        count = 0
-        os.mkdir(image_path + "/" + image_dirs[i] + "/" + new_dir)
-        image_files = sorted(os.listdir(image_path + "/" + image_dirs[i] + "/" + image_dirs2[j]))
-        for k in range(5):
-            for m in range(len(image_files)):
-                img = Image.open(image_path + "/" + image_dirs[i] + "/" + image_dirs2[j] + "/" + image_files[m])
-                if (k != 0):
-                    augmented_img = image_transform(img)
-                else:
-                    augmented_img = img
-                
-                if (count < 10):
-                    num = "000" + str(count)
-                elif (count < 100):
-                    num = "00" + str(count)
-                elif (count < 1000):
-                    num = "0" + str(count)
-                else:
-                    num = str(count)
-                count += 1
-
-                output_dir = image_path + "/" + image_dirs[i] + "/" + new_dir + "/" + num + ".jpg"
-                augmented_img.save(output_dir)
-    
-        image_files2 = sorted(os.listdir(image_path + "/" + image_dirs[i] + "/" + new_dir))
-        for k in range(len(image_files2)):
-            images.append(image_path + "/" + image_dirs[i] + "/" + new_dir + "/" + image_files2[k])
+    image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
+    image_group = len(image_files) / len(audio_files)
+    j = 0
+    while (j < len(image_files)):
+        for k in range(j, j + image_group):
+            images.append(image_path + "/" + image_dirs[i] + "/" + + image_files[k])
         
         image_input = {
             ModalityType.VISION: data.load_and_transform_vision_data(images, device),
@@ -174,7 +67,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
             image_embeddings = model(image_input)
         
             video_embed = image_embeddings[ModalityType.VISION]
-            video_embed = torch.reshape(video_embed, (5, len(image_files), -1))
+            video_embed = torch.reshape(video_embed, (1, image_group, -1))
             video_embed = torch.mean(video_embed, dim=1)
 
             if (i == 0 and j == 0):
@@ -183,7 +76,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
                 train_video_embeds = torch.cat((train_video_embeds, video_embed), 0)
 
         images = []
-        os.system("rm -r {}".format(image_path + "/" + image_dirs[i] + "/" + new_dir))
+        j += image_group
 
 print(train_video_embeds.shape)
 print(train_audio_embeds.shape)
@@ -207,85 +100,32 @@ fp2.flush()
 ## validation set
 for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
 
-    new_dir = "temp"
-
     ## audio
     audio_files = sorted(os.listdir(audio_path + "/" + audio_dirs[i]))
     for j in range(len(audio_files)):
-        count = 0
-        os.mkdir(audio_path + "/" + audio_dirs[i] + "/" + new_dir)
-        audio, sr = torchaudio.load(audio_path + "/" + audio_dirs[i] + "/" + audio_files[j])
-        for k in range(1):
-            if (k != 0):
-                process = audio_transform(sr)
-                transformed_audio = process(audio)
-            else:
-                transformed_audio = audio
+        audios.append(audio_path + "/" + audio_dirs[i] + "/" + audio_files[j])
 
-            if (count < 10):
-                num = "000" + str(count)
-            elif (count < 100):
-                num = "00" + str(count)
-            elif (count < 1000):
-                num = "0" + str(count)
-            else:
-                num = str(count)
-            count += 1
-
-            output_dir = audio_path + "/" + audio_dirs[i] + "/" + new_dir + "/" + num + ".mp3"
-            torchaudio.save(output_dir, transformed_audio, sr, format="mp3")
-
-        # os.remove(audio_files[j])
-        audio_files2 = sorted(os.listdir(audio_path + "/" + audio_dirs[i] + "/" + new_dir))
-        for k in range(len(audio_files2)):
-            audios.append(audio_path + "/" + audio_dirs[i] + "/" + new_dir + "/" + audio_files2[k])
-        
-        audio_input = {
-            ModalityType.AUDIO: data.load_and_transform_audio_data(audios, device),
-        }
-        with torch.no_grad():
-            audio_embeddings = model(audio_input)
-        
-            audio_embed = audio_embeddings[ModalityType.AUDIO]
-            if (i == int(len(audio_dirs)*split) and j == 0):
-                valid_audio_embeds = audio_embed
-            else:
-                valid_audio_embeds = torch.cat((valid_audio_embeds, audio_embed), 0)
-        
-        audios = []
-        os.system("rm -r {}".format(audio_path + "/" + audio_dirs[i] + "/" + new_dir))
-
+    audio_input = {
+        ModalityType.AUDIO: data.load_and_transform_audio_data(audios, device),
+    }
+    with torch.no_grad():
+        audio_embeddings = model(audio_input)
     
+        audio_embed = audio_embeddings[ModalityType.AUDIO]
+        if (i == int(len(audio_dirs)*split)):
+            valid_audio_embeds = audio_embed
+        else:
+            valid_audio_embeds = torch.cat((valid_audio_embeds, audio_embed), 0)
+    
+    audios = []
+
     ## image
-    image_dirs2 = sorted(os.listdir(image_path + "/" + image_dirs[i]))
-    for j in range(len(image_dirs2)):
-        count = 0
-        os.mkdir(image_path + "/" + image_dirs[i] + "/" + new_dir)
-        image_files = sorted(os.listdir(image_path + "/" + image_dirs[i] + "/" + image_dirs2[j]))
-        for k in range(1):
-            for m in range(len(image_files)):
-                img = Image.open(image_path + "/" + image_dirs[i] + "/" + image_dirs2[j] + "/" + image_files[m])
-                if (k != 0):
-                    augmented_img = image_transform(img)
-                else:
-                    augmented_img = img
-                
-                if (count < 10):
-                    num = "000" + str(count)
-                elif (count < 100):
-                    num = "00" + str(count)
-                elif (count < 1000):
-                    num = "0" + str(count)
-                else:
-                    num = str(count)
-                count += 1
-
-                output_dir = image_path + "/" + image_dirs[i] + "/" + new_dir + "/" + num + ".jpg"
-                augmented_img.save(output_dir)
-    
-        image_files2 = sorted(os.listdir(image_path + "/" + image_dirs[i] + "/" + new_dir))
-        for k in range(len(image_files2)):
-            images.append(image_path + "/" + image_dirs[i] + "/" + new_dir + "/" + image_files2[k])
+    image_files = sorted(os.listdir(image_path + "/" + image_dirs[i]))
+    image_group = len(image_files) / len(audio_files)
+    j = 0
+    while (j < len(image_files)):
+        for k in range(j, j + image_group):
+            images.append(image_path + "/" + image_dirs[i] + "/" + + image_files[k])
         
         image_input = {
             ModalityType.VISION: data.load_and_transform_vision_data(images, device),
@@ -294,7 +134,7 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
             image_embeddings = model(image_input)
         
             video_embed = image_embeddings[ModalityType.VISION]
-            video_embed = torch.reshape(video_embed, (1, len(image_files), -1))
+            video_embed = torch.reshape(video_embed, (1, image_group, -1))
             video_embed = torch.mean(video_embed, dim=1)
 
             if (i == int(len(audio_dirs)*split) and j == 0):
@@ -303,7 +143,7 @@ for i in tqdm(range(int(len(audio_dirs)*split), len(audio_dirs))):
                 valid_video_embeds = torch.cat((valid_video_embeds, video_embed), 0)
 
         images = []
-        os.system("rm -r {}".format(image_path + "/" + image_dirs[i] + "/" + new_dir))
+        j += image_group
 
 
 print(valid_video_embeds.shape)
