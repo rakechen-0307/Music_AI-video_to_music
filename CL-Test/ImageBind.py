@@ -57,7 +57,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
     image_group = len(image_files) // len(audio_files)
     j = 0
     while (j < len(image_files)):
-        for k in range(j, j + image_group):
+        for k in range(j, j + image_group * 5):
             images.append(image_path + "/" + image_dirs[i] + "/" + image_files[k])
         
         image_input = {
@@ -67,7 +67,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
             image_embeddings = model(image_input)
         
             video_embed = image_embeddings[ModalityType.VISION]
-            video_embed = torch.reshape(video_embed, (1, image_group, -1))
+            video_embed = torch.reshape(video_embed, (5, image_group, -1))
             video_embed = torch.mean(video_embed, dim=1)
 
             if (i == 0 and j == 0):
@@ -76,7 +76,7 @@ for i in tqdm(range(int(len(audio_dirs)*split))):
                 train_video_embeds = torch.cat((train_video_embeds, video_embed), 0)
 
         images = []
-        j += image_group
+        j += (image_group * 5)
 
 print(train_video_embeds.shape)
 print(train_audio_embeds.shape)
